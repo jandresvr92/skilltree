@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { ImportedTree, SkillEdge, SkillNode, View } from '../core/types'
+import type { ImportedTree, SkillEdge, SkillNode } from '../core/types'
 import { recomputeStatuses } from '../features/graph/graphEngine'
 import { normalizeImported } from '../features/import/validator'
 
@@ -14,12 +14,13 @@ export type {
   View,
 } from '../core/types'
 
+// El store de dominio es estrictamente responsable de los DATOS del negocio
+// (planName, nodes, edges) y sus acciones. El estado de UI (view, nodo
+// seleccionado, modales, feedback) vive en `useUiStore` y NO se persiste.
 interface TreeState {
-  view: View
   planName: string
   nodes: SkillNode[]
   edges: SkillEdge[]
-  setView: (view: View) => void
   importTree: (jsonString: string) => { ok: true } | { ok: false; error: string }
   completeNode: (nodeId: string, evidence: string) => void
   resetTree: () => void
@@ -73,24 +74,21 @@ const DEFAULT_TREE: Pick<TreeState, 'planName' | 'nodes' | 'edges'> = {
 }
 
 // ---------------------------------------------------------------------------
-// Store con persistencia en LocalStorage.
-// El store solo orquesta y persiste estado: la lógica pura vive en
-// `src/features/graph/graphEngine.ts` y `src/features/import/validator.ts`.
+// Store con persistencia en LocalStorage (solo DATOS de dominio).
+// La lógica pura vive en `src/features/graph/graphEngine.ts` y
+// `src/features/import/validator.ts`; el store solo orquesta y persiste.
 // ---------------------------------------------------------------------------
 
 export const useTreeStore = create<TreeState>()(
   persist(
     (set, get) => ({
-      view: 'home',
       ...DEFAULT_TREE,
-
-      setView: (view) => set({ view }),
 
       importTree: (jsonString) => {
         try {
           const parsed = JSON.parse(jsonString) as ImportedTree
           const normalized = normalizeImported(parsed)
-          set({ ...normalized, view: 'map' })
+          set({ ...normalized })
           return { ok: true }
         } catch (err) {
           const message =
@@ -120,12 +118,11 @@ export const useTreeStore = create<TreeState>()(
         set({ nodes: recomputeStatuses(withCompleted, edges) })
       },
 
-      resetTree: () => set({ ...DEFAULT_TREE, view: 'home' }),
+      resetTree: () => set({ ...DEFAULT_TREE }),
     }),
     {
       name: 'skilltree-storage',
       partialize: (state) => ({
-        view: state.view,
         planName: state.planName,
         nodes: state.nodes,
         edges: state.edges,

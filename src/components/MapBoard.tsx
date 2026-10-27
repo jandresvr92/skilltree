@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import {
   ReactFlow,
   Background,
@@ -10,6 +10,7 @@ import {
 } from '@xyflow/react'
 import { ArrowLeft, Sprout } from 'lucide-react'
 import { useTreeStore, type SkillNode as SkillNodeType } from '../store/useTreeStore'
+import { useUiStore } from '../store/useUiStore'
 import { SkillNode } from './SkillNode'
 import { SidePanel } from './SidePanel'
 
@@ -25,9 +26,11 @@ export function MapBoard() {
   const planName = useTreeStore((s) => s.planName)
   const nodes = useTreeStore((s) => s.nodes)
   const edges = useTreeStore((s) => s.edges)
-  const setView = useTreeStore((s) => s.setView)
 
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  // Estado de UI (efímero)
+  const setView = useUiStore((s) => s.setView)
+  const selectedNodeId = useUiStore((s) => s.selectedNodeId)
+  const selectNode = useUiStore((s) => s.selectNode)
 
   // Nodo seleccionado SIEMPRE fresco del store para reflejar cambios de status.
   const selectedNode = useMemo(
@@ -38,7 +41,7 @@ export function MapBoard() {
   const handleNodeClick = (_: unknown, node: Node) => {
     const status = (node as SkillNodeType).data.status
     if (status === 'locked') return
-    setSelectedNodeId(node.id)
+    selectNode(node.id)
   }
 
   return (
@@ -73,7 +76,7 @@ export function MapBoard() {
       </ReactFlow>
 
       {selectedNode && (
-        <SidePanel node={selectedNode} onClose={() => setSelectedNodeId(null)} />
+        <SidePanel node={selectedNode} onClose={() => selectNode(null)} />
       )}
     </div>
   )

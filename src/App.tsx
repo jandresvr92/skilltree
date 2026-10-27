@@ -1,22 +1,25 @@
 import { useState } from 'react'
 import { TreePine, Wand2, Sprout } from 'lucide-react'
 import { useTreeStore } from './store/useTreeStore'
+import { useUiStore } from './store/useUiStore'
 import { PromptModal } from './components/PromptModal'
 import { MapBoard } from './components/MapBoard'
 
 function App() {
-  const view = useTreeStore((s) => s.view)
+  // Datos de dominio
   const importTree = useTreeStore((s) => s.importTree)
-  const setView = useTreeStore((s) => s.setView)
   const planName = useTreeStore((s) => s.planName)
   const nodeCount = useTreeStore((s) => s.nodes.length)
 
+  // Estado de UI (efímero, sin persistencia)
+  const view = useUiStore((s) => s.view)
+  const setView = useUiStore((s) => s.setView)
+  const feedback = useUiStore((s) => s.feedback)
+  const setFeedback = useUiStore((s) => s.setFeedback)
+  const setPromptOpen = useUiStore((s) => s.setPromptOpen)
+
+  // Estado local del input controlado (efímero de este componente).
   const [rawJson, setRawJson] = useState('')
-  const [feedback, setFeedback] = useState<{
-    type: 'error' | 'success'
-    message: string
-  } | null>(null)
-  const [promptOpen, setPromptOpen] = useState(false)
 
   const handleGenerate = () => {
     if (!rawJson.trim()) {
@@ -24,10 +27,12 @@ function App() {
       return
     }
     const result = importTree(rawJson)
-    if (!result.ok) {
+    if (result.ok) {
+      setFeedback(null)
+      setView('map')
+    } else {
       setFeedback({ type: 'error', message: result.error })
     }
-    // Si fue exitoso, importTree ya cambió la vista a 'map'.
   }
 
   // Vista del mapa (Fase 2 / 3).
@@ -163,7 +168,7 @@ function App() {
         </div>
       </main>
 
-      <PromptModal open={promptOpen} onClose={() => setPromptOpen(false)} />
+      <PromptModal />
     </div>
   )
 }

@@ -1,15 +1,15 @@
 import { useState } from 'react'
 import { X, Copy, Check, Sparkles } from 'lucide-react'
-
-interface PromptModalProps {
-  open: boolean
-  onClose: () => void
-}
+import { useUiStore } from '../store/useUiStore'
 
 // Plantilla de prompt que el usuario copia hacia su IA (ver Skill 4 del steering).
 const AI_PROMPT = `Actúa como un arquitecto de software y diseñador de rutas de aprendizaje. Genera un árbol de habilidades en formato JSON compatible con React Flow sobre el tema: [ESCRIBE TU TEMA AQUÍ]. Genera entre 4 y 6 nodos lógicos con ramificaciones. El primer nodo (id: 1) debe tener el status 'available', los demás deben ser 'locked'. Cada nodo en su objeto 'data' debe tener: title, status, resources (array de 2 enlaces reales) y evidence (string vacío). Calcula las posiciones {x, y} para que formen un árbol hacia abajo. Devuelve ÚNICAMENTE el JSON puro con la estructura { name, nodes, edges }.`
 
-export function PromptModal({ open, onClose }: PromptModalProps) {
+export function PromptModal() {
+  const open = useUiStore((s) => s.promptOpen)
+  const setPromptOpen = useUiStore((s) => s.setPromptOpen)
+  const onClose = () => setPromptOpen(false)
+
   const [copied, setCopied] = useState(false)
 
   if (!open) return null

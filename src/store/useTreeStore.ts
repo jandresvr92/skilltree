@@ -1,47 +1,18 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Edge, Node } from '@xyflow/react'
+import type { ImportedTree, SkillEdge, SkillNode, View } from '../core/types'
+import { recomputeStatuses } from '../features/graph/graphEngine'
+import { normalizeImported } from '../features/import/validator'
 
-// ---------------------------------------------------------------------------
-// Modelo de datos (ver SPEC.md - Sección 2)
-// ---------------------------------------------------------------------------
-
-export type SkillStatus = 'locked' | 'available' | 'completed'
-
-export interface SkillNodeData {
-  title: string
-  status: SkillStatus
-  resources: string[]
-  evidence: string
-  // Firma de índice requerida por @xyflow/react v12 para el tipo de `data`.
-  [key: string]: unknown
-}
-
-export type SkillNode = Node<SkillNodeData>
-export type SkillEdge = Edge
-
-// Estructura del JSON que genera la IA e importa el usuario.
-interface ImportedTree {
-  name?: string
-  nodes?: Array<{
-    id: string
-    position: { x: number; y: number }
-    data: {
-      title: string
-      status?: SkillStatus
-      resources?: string[]
-      evidence?: string
-    }
-  }>
-  edges?: Array<{
-    id?: string
-    source: string
-    target: string
-    animated?: boolean
-  }>
-}
-
-export type View = 'home' | 'map'
+// Re-exportamos los tipos de dominio para mantener compatibilidad con los
+// imports existentes (p. ej. `import type { SkillNodeData } from '...store...'`).
+export type {
+  SkillStatus,
+  SkillNodeData,
+  SkillNode,
+  SkillEdge,
+  View,
+} from '../core/types'
 
 interface TreeState {
   view: View
@@ -102,94 +73,9 @@ const DEFAULT_TREE: Pick<TreeState, 'planName' | 'nodes' | 'edges'> = {
 }
 
 // ---------------------------------------------------------------------------
-// Normalización del JSON importado hacia el modelo interno.
-// ---------------------------------------------------------------------------
-
-function normalizeImported(tree: ImportedTree): {
-  planName: string
-  nodes: SkillNode[]
-  edges: SkillEdge[]
-} {
-  if (!Array.isArray(tree.nodes) || tree.nodes.length === 0) {
-    throw new Error('El JSON debe incluir un arreglo "nodes" con al menos un nodo.')
-  }
-
-  const nodes: SkillNode[] = tree.nodes.map((n) => {
-    if (!n.id || !n.position || !n.data) {
-      throw new Error('Cada nodo necesita "id", "position" y "data".')
-    }
-    return {
-      id: String(n.id),
-      position: {
-        x: Number(n.position.x) || 0,
-        y: Number(n.position.y) || 0,
-      },
-      type: 'skill',
-      data: {
-        title: n.data.title ?? 'Sin título',
-        status: n.data.status ?? 'locked',
-        resources: Array.isArray(n.data.resources) ? n.data.resources : [],
-        evidence: n.data.evidence ?? '',
-      },
-    }
-  })
-
-  const edges: SkillEdge[] = Array.isArray(tree.edges)
-    ? tree.edges.map((e, i) => ({
-        id: e.id ?? `e${e.source}-${e.target}-${i}`,
-        source: String(e.source),
-        target: String(e.target),
-        animated: Boolean(e.animated),
-      }))
-    : []
-
-  return {
-    planName: tree.name?.trim() || 'Mi Ruta de Aprendizaje',
-    nodes,
-    edges,
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Recalculo de estados con desbloqueo ESTRICTO.
-// Un nodo no-completed pasa a 'available' si no tiene padres o si TODOS sus
-// padres están 'completed'; de lo contrario queda 'locked'.
-// Los nodos ya 'completed' se mantienen intactos.
-// ---------------------------------------------------------------------------
-
-function recomputeStatuses(
-  nodes: SkillNode[],
-  edges: SkillEdge[],
-): SkillNode[] {
-  // Mapa de padres: target -> lista de sources (dependencias).
-  const parents = new Map<string, string[]>()
-  for (const edge of edges) {
-    const list = parents.get(edge.target) ?? []
-    list.push(edge.source)
-    parents.set(edge.target, list)
-  }
-
-  const completedIds = new Set(
-    nodes.filter((n) => n.data.status === 'completed').map((n) => n.id),
-  )
-
-  return nodes.map((node) => {
-    if (node.data.status === 'completed') return node
-
-    const nodeParents = parents.get(node.id) ?? []
-    const allParentsCompleted =
-      nodeParents.length === 0 ||
-      nodeParents.every((parentId) => completedIds.has(parentId))
-
-    const nextStatus: SkillStatus = allParentsCompleted ? 'available' : 'locked'
-
-    if (node.data.status === nextStatus) return node
-    return { ...node, data: { ...node.data, status: nextStatus } }
-  })
-}
-
-// ---------------------------------------------------------------------------
 // Store con persistencia en LocalStorage.
+// El store solo orquesta y persiste estado: la lógica pura vive en
+// `src/features/graph/graphEngine.ts` y `src/features/import/validator.ts`.
 // ---------------------------------------------------------------------------
 
 export const useTreeStore = create<TreeState>()(
@@ -230,7 +116,7 @@ export const useTreeStore = create<TreeState>()(
             : node,
         )
 
-        // 2. Recalcular el resto con desbloqueo estricto.
+        // 2. Recalcular el resto con desbloqueo estricto (función pura).
         set({ nodes: recomputeStatuses(withCompleted, edges) })
       },
 

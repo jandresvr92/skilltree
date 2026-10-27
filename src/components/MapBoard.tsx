@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import {
   ReactFlow,
   Background,
@@ -12,7 +11,6 @@ import { ArrowLeft, Sprout } from 'lucide-react'
 import { useTreeStore, type SkillNode as SkillNodeType } from '../store/useTreeStore'
 import { useUiStore } from '../store/useUiStore'
 import { SkillNode } from './SkillNode'
-import { SidePanel } from './SidePanel'
 
 const nodeTypes: NodeTypes = { skill: SkillNode }
 
@@ -22,6 +20,13 @@ const defaultEdgeOptions: DefaultEdgeOptions = {
   style: { stroke: '#000000', strokeWidth: 4 },
 }
 
+// ---------------------------------------------------------------------------
+// MapBoard: responsable ESTRICTAMENTE del grafo (inicializar @xyflow/react,
+// renderizar nodos/edges y manejar eventos de grafo). No renderiza el panel
+// ni contiene lógica de negocio: al hacer clic en un nodo solo actualiza el
+// nodo seleccionado en el useUiStore.
+// ---------------------------------------------------------------------------
+
 export function MapBoard() {
   const planName = useTreeStore((s) => s.planName)
   const nodes = useTreeStore((s) => s.nodes)
@@ -29,14 +34,7 @@ export function MapBoard() {
 
   // Estado de UI (efímero)
   const setView = useUiStore((s) => s.setView)
-  const selectedNodeId = useUiStore((s) => s.selectedNodeId)
   const selectNode = useUiStore((s) => s.selectNode)
-
-  // Nodo seleccionado SIEMPRE fresco del store para reflejar cambios de status.
-  const selectedNode = useMemo(
-    () => nodes.find((n) => n.id === selectedNodeId) ?? null,
-    [nodes, selectedNodeId],
-  )
 
   const handleNodeClick = (_: unknown, node: Node) => {
     const status = (node as SkillNodeType).data.status
@@ -45,7 +43,7 @@ export function MapBoard() {
   }
 
   return (
-    <div className="relative h-screen w-full bg-[#F4F4F0] font-mono">
+    <div className="relative h-full w-full bg-[#F4F4F0] font-mono">
       {/* Overlay superior: nombre del plan + volver */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-4 p-6">
         <button
@@ -74,10 +72,6 @@ export function MapBoard() {
         <Background variant={BackgroundVariant.Dots} gap={24} size={2} color="#000000" />
         <Controls />
       </ReactFlow>
-
-      {selectedNode && (
-        <SidePanel node={selectedNode} onClose={() => selectNode(null)} />
-      )}
     </div>
   )
 }

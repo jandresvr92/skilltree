@@ -1,23 +1,44 @@
 import { useState } from 'react'
 import { X, BookOpen, NotebookPen, Save, ExternalLink } from 'lucide-react'
-import { useTreeStore, type SkillNode } from '../store/useTreeStore'
-
-interface SidePanelProps {
-  node: SkillNode
-  onClose: () => void
-}
+import { useTreeStore } from '../store/useTreeStore'
+import { useUiStore } from '../store/useUiStore'
 
 // ---------------------------------------------------------------------------
-// Ventana flotante maciza sobre el mapa. Dos secciones:
+// Ventana flotante maciza sobre el mapa. Componente autónomo: se suscribe al
+// useUiStore para saber qué nodo está seleccionado y lee sus datos del
+// useTreeStore. Dos secciones:
 //   📚 Material de Apoyo (resources, solo lectura)
 //   📝 Mi Bitácora (textarea + guardar si 'available'; evidencia si 'completed')
 // ---------------------------------------------------------------------------
 
-export function SidePanel({ node, onClose }: SidePanelProps) {
+export function SidePanel() {
+  const selectedNodeId = useUiStore((s) => s.selectedNodeId)
+
+  // Si no hay nodo seleccionado, el panel no se muestra. Montamos el contenido
+  // con una `key` por ID para que el borrador local se reinicie por nodo.
+  if (!selectedNodeId) return null
+
+  return <SidePanelContent key={selectedNodeId} />
+}
+
+// Contenido real del panel. Se monta con una `key` por nodo, de modo que el
+// borrador local (`draft`) se reinicia limpio al cambiar de nodo.
+function SidePanelContent() {
+  const selectedNodeId = useUiStore((s) => s.selectedNodeId)
+  const selectNode = useUiStore((s) => s.selectNode)
   const completeNode = useTreeStore((s) => s.completeNode)
-  const [draft, setDraft] = useState(node.data.evidence ?? '')
+
+  // Nodo SIEMPRE fresco del store para reflejar cambios de status.
+  const node = useTreeStore((s) =>
+    selectedNodeId ? s.nodes.find((n) => n.id === selectedNodeId) ?? null : null,
+  )
+
+  const [draft, setDraft] = useState(node?.data.evidence ?? '')
+
+  if (!node) return null
 
   const { title, status, resources, evidence } = node.data
+  const onClose = () => selectNode(null)
 
   const handleSave = () => {
     completeNode(node.id, draft)

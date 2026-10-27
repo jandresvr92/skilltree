@@ -4,6 +4,7 @@ import { useTreeStore } from './store/useTreeStore'
 import { useUiStore } from './store/useUiStore'
 import { PromptModal } from './components/PromptModal'
 import { MapBoard } from './components/MapBoard'
+import { SidePanel } from './components/SidePanel'
 
 function App() {
   // Datos de dominio
@@ -35,9 +36,15 @@ function App() {
     }
   }
 
-  // Vista del mapa (Fase 2 / 3).
+  // Vista del mapa: MapBoard y SidePanel son hermanos. El contenedor ocupa
+  // toda la pantalla; el panel flota sobre el mapa (posición absolute).
   if (view === 'map') {
-    return <MapBoard />
+    return (
+      <div className="relative h-screen w-full overflow-hidden">
+        <MapBoard />
+        <SidePanel />
+      </div>
+    )
   }
 
   return (
